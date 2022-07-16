@@ -1,0 +1,2 @@
+user default off nopass -@all
+user {YOURNAME} on ~* +@all >{YOURPASSWORD}

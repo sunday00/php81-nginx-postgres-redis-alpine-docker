@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  nginx:
+    container_name: ${CONTAINER_GROUP}-nginx
+    build:
+      context: .
+      dockerfile: nginx.dockerfile
+    ports:
+      - "${NGINX_PORT}:80"
+    volumes:
+      - ./src:${WEB_DIR}
+    depends_on:
+      - pgsql
+      - redis
+      - php
+
+  pgsql:
+    container_name: ${CONTAINER_GROUP}-pgsql
+    image: postgres:14-alpine
+    ports:
+      - "${PGSQL_PORT}:5432"
+    environment:
+      POSTGRES_USER: "${PGSQL_USER}"
+      POSTGRES_PASSWORD: "${PASS_WORD}"
+      POSTGRES_DB: "${CONTAINER_GROUP}"
+      PGDATA: /var/lib/postgresql/data/pgdata/
+    volumes:
+      - ./psql:/var/lib/postgresql
+
+  redis:
+    container_name: ${CONTAINER_GROUP}-redis
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT}:6379"
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./redis/conf:/usr/local/etc/redis
+      - ./redis/data:/var/lib/redis/data
+
+  meili:
+    container_name: ${CONTAINER_GROUP}-meili
+    image: getmeili/meilisearch:v0.27.2
+    ports:
+      - "${MEILI_PORT}:7700"
+    environment:
+      - MEILI_MASTER_KEY=${PASS_WORD}
+    volumes:
+      - ./meili/data:/meili_data
+
+  php:
+    container_name: ${CONTAINER_GROUP}-php
+    build:
+      context: .
+      dockerfile: php.dockerfile
+    volumes:
+      - ./src:/var/www/html
+    depends_on:
+      - pgsql
+      - redis
+      - meili
+
+  composer:
+    build:
+      context: .
+      dockerfile: composer.dockerfile
+    volumes:
+      - ./src:${WEB_DIR}
+    working_dir: ${WEB_DIR}
+    depends_on:
+      - php
+      - pgsql
+
+  npm:
+    image: node:14-alpine
+    volumes:
+      - ./src:${WEB_DIR}
+    working_dir: ${WEB_DIR}
+    entrypoint: ["npm"]
+
+  artisan:
+    build:
+      context: .
+      dockerfile: php.dockerfile
+    volumes:
+      - ./src:${WEB_DIR}
+    working_dir: ${WEB_DIR}
+    depends_on:
+      - pgsql
+    entrypoint: ["php", "${WEB_DIR}/artisan"]
+
+  art:
+    build:
+      context: .
+      dockerfile: php.prod.dockerfile
+    volumes:
+      - ./src/current:${WEB_DIR}/current
+    working_dir: ${WEB_DIR}/current
+    depends_on:
+      - pgsql
+    entrypoint: [ "php", "${WEB_DIR}/current/artisan" ]

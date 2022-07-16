@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  php:
+    container_name: ${CONTAINER_GROUP}-php
+    build:
+      context: .
+      dockerfile: php.prod.dockerfile
+
+  assets:
+    container_name: ${CONTAINER_GROUP}-assets
+    image: node:current-alpine
+    volumes:
+      - ./src:${WEB_DIR}
+      - ./src/current:${WEB_DIR}/current
+    command: [ "/bin/sh", "-c", "npm install && npm run production" ]
+    working_dir: ${WEB_DIR}/current
